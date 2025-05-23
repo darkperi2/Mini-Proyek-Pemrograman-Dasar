@@ -1,52 +1,380 @@
-# Prerequisites
-*.d
+// program aplikasi pengeluaran "Prototipe"
+#include <stdio.h> // Untuk general input/output
+#include <stdlib.h> // Untuk fungsi system()
+#include <string.h> // Untuk fungsi string
+#include <time.h> // Untuk fungsi waktu (biasanya digunakan untuk tanggal, bisa juga dari komputer user)
+#include <unistd.h> // Untuk fungsi unlink() (menghapus file), untuk konsep file jaminan
 
-# Object files
-*.o
-*.ko
-*.obj
-*.elf
+/* 
+ * KONSTANTA PROGRAM
+ * MAKS_DATA - Batas maksimal data yang bisa disimpan
+ * PANJANG_NAMA - Panjang maksimal untuk string nama/kategori
+ * NAMA_FILE - Nama file untuk menyimpan data (format CSV)
+ * MAKS_PATH - Panjang maksimal path file jaminan
+ */
+#define MAKS_DATA 100  // #define. bisa dibilang alias atau mendefinisikan nilai dari konstan
+#define PANJANG_NAMA 50 
+#define NAMA_FILE "duit.csv" // Nama file untuk menyimpan data pengeluaran, bisa diubah sesuai kebutuhan
+#define MAKS_PATH 256 
 
-# Linker output
-*.ilk
-*.map
-*.exp
+/*
+ * STRUKTUR DATA PENGELUARAN
+ * Menyimpan informasi tentang setiap transaksi pengeluaran
+ */
+typedef struct {        //typedef struct adalah kaya ngebuat tipe data baru, bikin kotak isinya apa aja nah terus tinggal manggil fungsi kotak tadi
+    char tanggal[20];    // Format: DD/MM/YYYY
+    char hari[15];       // Nama hari (Senin-Minggu)
+    char kategori[PANJANG_NAMA]; // Kategori pengeluaran
+    float jumlah;        // Jumlah pengeluaran
+    char keterangan[100]; // Keterangan tambahan
+} uang; // nama kotaknya
 
-# Precompiled Headers
-*.gch
-*.pch
+// Variabel global untuk menyimpan data
+uang data[MAKS_DATA];    // Array untuk menyimpan data pengeluaran
+int jumlah_data = 0;     // Jumlah data yang sudah tersimpan
+float anggaran = 0;      // Anggaran bulanan yang ditetapkan
+char bulan[20] = "";     // Bulan yang sedang aktif
+int tahun = 0;           // Tahun yang sedang aktif
+char file_jaminan[MAKS_PATH] = ""; // Path file jaminan
 
-# Libraries
-*.lib
-*.a
-*.la
-*.lo
+/*
+ * Fungsi untuk membersihkan layar terminal
+ * Menggunakan system("cls") di Windows, kalau di macOS sama linux gak tau
+ * Kan kalau coba run lagi terminalnya masih ada bekas run sebelumnya, jadi lebih enak di clear
+ */
+int bersihkan_layar() {
+    #ifdef _WIN32
+        return system("cls");
+   
+    #endif
+} 
 
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
+/*
+ * Menampilkan menu utama program
+ */
+int tampilkan_menu() {
+    bersihkan_layar();
+    printf("=== APLIKASI PENGELUARAN ===\n\n");
+    // Menampilkan informasi bulan, anggaran, dan file jaminan
+    printf("Bulan: %s %d\n", bulan, tahun);
+    printf("Anggaran: Rp%.2f\n", anggaran);
+    printf("File Jaminan: %s\n\n", 
+           file_jaminan[0] ? file_jaminan : "-");
+    
+    // Daftar menu yang tersedia
+    printf("1. Catat Pengeluaran\n");
+    printf("2. Lihat Laporan\n");
+    printf("3. Setel Anggaran\n");
+    printf("4. Simpan ke Excel\n");
+    printf("5. Cek Pelanggaran\n");
+    printf("6. Setel File Jaminan\n");
+    printf("7. Keluar\n\n");
+    return 0;
+}
 
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
+/*
+ * Fungsi untuk memilih bulan awal
+ * User memilih bulan dari daftar yang tersedia
+ */
+int pilih_bulan() {
+    // Daftar nama bulan
+    const char *bulan_list[] = {
+        "JANUARI", "FEBRUARI", "MARET", "APRIL", "MEI", "JUNI",
+        "JULI", "AGUSTUS", "SEPTEMBER", "OKTOBER", "NOVEMBER", "DESEMBER"
+    };
+    
+    // Mendapatkan secara real time bulan dan tahun dari sistem
+    time_t sekarang = time(NULL);
+    struct tm *tm = localtime(&sekarang);
+    tahun = tm->tm_year + 1900;
+    
+    // Menampilkan pilihan bulan
+    printf("\nPilih Bulan:\n");
+    for (int i = 0; i < 12; i++) {
+        printf("%2d. %s\n", i+1, bulan_list[i]);
+    }
+    
+    // Meminta input bulan dari user dengan validasi. ya cuman nama bulan doang, diexcelnya gak ada
+    int pilihan;
+    do {
+        printf("\nPilihan (1-12, 0 untuk keluar): ");
+        if (scanf("%d", &pilihan) != 1) {
+            printf("Input tidak valid!\n");
+            while(getchar() != '\n');
+            continue;
+        }
+        while(getchar() != '\n');
+        
+        if (pilihan == 0) return -1; // Keluar jika memilih 0
+        if (pilihan < 1 || pilihan > 12) {
+            printf("Pilihan harus 1-12!\n");
+        }
+    } while (pilihan < 1 || pilihan > 12);
+    
+    // Menyimpan bulan yang dipilih
+    strcpy(bulan, bulan_list[pilihan-1]);
+    
+    // Membuat file CSV jika belum ada
+    FILE *file = fopen(NAMA_FILE, "r");
+    if (file == NULL) {
+        file = fopen(NAMA_FILE, "w");
+        if (file) {
+            // Menulis header untuk file CSV
+            fprintf(file, "Tanggal,Hari,Kategori,Jumlah,Keterangan\n");
+            fclose(file);
+        }
+    } else {
+        fclose(file);
+    }
+    
+    return 0;
+}
 
-# Debug files
-*.dSYM/
-*.su
-*.idb
-*.pdb
+/*
+ * Fungsi untuk mengatur file jaminan
+ * User memasukkan path file yang akan digunakan sebagai jaminan
+ */
+int setel_jaminan() {
+    bersihkan_layar();
+    printf("=== SETEL FILE JAMINAN ===\n\n");
+    printf("Masukkan path file jaminan (atau 'batal' untuk kembali): ");
+    fgets(file_jaminan, MAKS_PATH, stdin);
+    file_jaminan[strcspn(file_jaminan, "\n")] = '\0'; // Menghapus newline
+    
+    // Cek jika user ingin membatalkan
+    if (strcmp(file_jaminan, "batal") == 0) {
+        file_jaminan[0] = '\0';
+        return 0;
+    }
+    
+    // Verifikasi apakah file ada. ini sumpah keknya gak ngaruh dah???
+    if (access(file_jaminan, F_OK) != 0) {
+        printf("\nFile tidak ditemukan! Tetap disimpan? (y/t): ");
+        char konfirmasi = getchar();
+        while(getchar() != '\n');
+        if (konfirmasi != 'y' && konfirmasi != 'Y') {
+            file_jaminan[0] = '\0';
+        }
+    }
+    return 0;
+}
 
-# Kernel Module Compile Results
-*.mod*
-*.cmd
-.tmp_versions/
-modules.order
-Module.symvers
-Mkfile.old
-dkms.conf
+/*
+ * Fungsi untuk mencatat pengeluaran baru
+ */
+int catat_pengeluaran() {
+    // Cek apakah penyimpanan penuh
+    if (jumlah_data >= MAKS_DATA) {
+        printf("\nPenyimpanan penuh!\n");
+        return -1;
+    }
+    
+    bersihkan_layar();
+    printf("=== CATAT PENGELUARAN ===\n\n");
+    
+    // Mengisi tanggal dan hari secara otomatis
+    time_t sekarang = time(NULL);
+    struct tm *tm = localtime(&sekarang);
+    strftime(data[jumlah_data].tanggal, 20, "%d/%m/%y", tm); 
+    strftime(data[jumlah_data].hari, 15, "%A", tm);
+    
+    // Konversi nama hari ke Bahasa Indonesia, yaaa dari windownya ada yang pake bahasa inggris
+    if (strcmp(data[jumlah_data].hari, "Sunday") == 0) strcpy(data[jumlah_data].hari, "Minggu");
+    else if (strcmp(data[jumlah_data].hari, "Monday") == 0) strcpy(data[jumlah_data].hari, "Senin");
+    else if (strcmp(data[jumlah_data].hari, "Tuesday") == 0) strcpy(data[jumlah_data].hari, "Selasa");
+    else if (strcmp(data[jumlah_data].hari, "Wednesday") == 0) strcpy(data[jumlah_data].hari, "Rabu");
+    else if (strcmp(data[jumlah_data].hari, "Thursday") == 0) strcpy(data[jumlah_data].hari, "Kamis");
+    else if (strcmp(data[jumlah_data].hari, "Friday") == 0) strcpy(data[jumlah_data].hari, "Jumat");
+    else if (strcmp(data[jumlah_data].hari, "Saturday") == 0) strcpy(data[jumlah_data].hari, "Sabtu");
+    
+    printf("Tanggal: %s\n", data[jumlah_data].tanggal);
+    printf("Hari: %s\n", data[jumlah_data].hari);
+    
+    // Memasukkan kategori pengeluaran
+    printf("Kategori (atau 'batal' untuk kembali): ");
+    fgets(data[jumlah_data].kategori, PANJANG_NAMA, stdin);
+    data[jumlah_data].kategori[strcspn(data[jumlah_data].kategori, "\n")] = '\0';
+    
+    // Cek jika user ingin membatalkan
+    if (strcmp(data[jumlah_data].kategori, "batal") == 0) {
+        return 0;
+    }
+    
+    // Memasukkan jumlah pengeluaran dengan validasi
+    printf("Jumlah (Rp): ");
+    while (scanf("%f", &data[jumlah_data].jumlah) != 1) {
+        printf("Input tidak valid! Masukkan angka: ");
+        while(getchar() != '\n');
+    }
+    while(getchar() != '\n');
+    
+    // Memasukkan keterangan tambahan
+    printf("Keterangan: ");
+    fgets(data[jumlah_data].keterangan, 100, stdin);
+    data[jumlah_data].keterangan[strcspn(data[jumlah_data].keterangan, "\n")] = '\0';
+    
+    // Menambah jumlah data yang tersimpan
+    jumlah_data++;
+    printf("\nData berhasil disimpan!\n");
+    return 0;
+}
+
+/*
+ * Fungsi untuk menyimpan data ke file CSV
+ * Format file kompatibel dengan Excel
+ */
+int simpan_excel() {
+    // Membuka file untuk ditulis.
+    FILE *file = fopen(NAMA_FILE, "a");
+    if (!file) {
+        printf("\nGagal membuka file %s\n", NAMA_FILE);
+        return -1;
+    }
+    
+    // Menulis semua data ke file
+    for (int i = 0; i < jumlah_data; i++) {
+        fprintf(file, "%s,%s,%s,%.2f,%s\n",
+                data[i].tanggal,                                
+                data[i].hari,
+                data[i].kategori,
+                data[i].jumlah,
+                data[i].keterangan);
+    }
+    
+    fclose(file);
+    printf("\nData berhasil disimpan ke %s\n", NAMA_FILE);
+    return 0;
+}
+
+/*
+ * Fungsi untuk mengecek pelanggaran anggaran
+ * Menghitung total pengeluaran dan membandingkan dengan anggaran
+ * Jika melebihi batas pengeluaran tertentu, file jaminan akan dihapus
+ */
+int cek_pelanggaran() {
+    // Cek jika anggaran belum disetel
+    if (anggaran <= 0) {
+        printf("\nAnggaran belum disetel!\n");
+        return -1;
+    }
+    
+    // Menghitung total pengeluaran
+    float total = 0;
+    for (int i = 0; i < jumlah_data; i++) {
+        total += data[i].jumlah;
+    }
+    
+    // Menghitung persentase pengeluaran terhadap anggaran
+    float persentase = (total / anggaran) * 100;
+    
+    bersihkan_layar();
+    printf("=== CEK PELANGGARAN ===\n\n");
+    printf("Total Pengeluaran: Rp%.2f\n", total);
+    printf("Anggaran: Rp%.2f\n", anggaran);
+    printf("Persentase: %.2f%%\n\n", persentase);
+    
+    // Memberikan peringatan berdasarkan persentase pengeluaran
+    if (persentase >= 80 && persentase < 100) {         // bisa diubah juga jika 80% buat peringatan, kalau 100% langgsung file dihapus
+        printf("PERINGATAN: Hampir mencapai anggaran!\n");
+    } 
+    else if (persentase >= 100) {
+        printf("PELANGGARAN: Melebihi anggaran!\n");
+        
+        // Jika ada file jaminan
+        if (file_jaminan[0]) {
+            printf("\nFile jaminan: %s\n", file_jaminan);
+            
+            // Jika melebihi 102%, berikan hukuman
+            if (persentase >= 102) {
+                printf("\nHUKUMAN: File akan dihapus!\n");
+                printf("Konfirmasi (y/t): ");
+                char konfirmasi = getchar();
+                while(getchar() != '\n');
+                
+                // Konfirmasi penghapusan file
+                if (konfirmasi == 'y' || konfirmasi == 'Y') {
+                    if (unlink(file_jaminan) == 0) {
+                        printf("File berhasil dihapus!\n");
+                        file_jaminan[0] = '\0';
+                    } else {
+                        printf("Gagal menghapus file!\n");
+                    }
+                } else {
+                    printf("Penghapusan dibatalkan.\n");
+                }
+            }
+        }
+    }
+    return 0;
+}
+
+// Fungsi utama menjalankan program
+int main() {
+    // Memilih bulan terlebih dahulu
+    if (pilih_bulan() == -1) return 0;
+    
+    int pilihan;
+    do {
+        // Menampilkan menu utama
+        tampilkan_menu();
+        printf("Pilihan (1-7): ");
+        
+        // Meminta input pilihan dengan validasi
+        if (scanf("%d", &pilihan) != 1) {
+            printf("Input tidak valid!\n");
+            while(getchar() != '\n');
+            continue;
+        }
+        while(getchar() != '\n');
+        
+        // Memproses pilihan user
+        switch(pilihan) {
+            case 1: catat_pengeluaran(); break;
+            case 2: {
+                // Menampilkan laporan pengeluaran
+                bersihkan_layar();
+                printf("=== LAPORAN PENGELUARAN ===\n\n");
+                for (int i = 0; i < jumlah_data; i++) {
+                    printf("%s | %s | %-15s | Rp%10.2f | %s\n",
+                           data[i].tanggal,                         // Text yang nanti muncul diexcel
+                           data[i].hari,
+                           data[i].kategori,
+                           data[i].jumlah,
+                           data[i].keterangan);
+                }
+                break;
+            }
+            case 3: {
+                // Mengatur anggaran bulanan
+                printf("\nMasukkan anggaran bulanan: Rp");
+                scanf("%f", &anggaran);
+                while(getchar() != '\n');
+                printf("Anggaran berhasil disetel\n");
+                break;
+            }
+            case 4: simpan_excel(); break;
+            case 5: cek_pelanggaran(); break;
+            case 6: setel_jaminan(); break;
+            case 7: printf("\nTerima kasih!\n"); break;
+            default: printf("\nPilihan tidak valid!\n"); continue;
+        }
+        
+        // Menunggu user menekan Enter sebelum kembali ke menu
+        if (pilihan != 7) {
+            printf("\nTekan Enter untuk kembali...");
+            while(getchar() != '\n');
+        }
+    } while (pilihan != 7);
+    
+    return 0;
+}
+
+/*
+    * Catatan:
+    * - Program ini adalah prototipe sederhana untuk mencatat pengeluaran bulanan.
+    * - Data disimpan dalam format CSV agar mudah dibaca oleh Excel.
+    * - Pengguna dapat mengatur anggaran bulanan dan file jaminan.
+    * - Jika pengeluaran melebihi anggaran, file jaminan akan dihapus.
+    * - Program ini hanya bisa digunakan sekali pakai, jadi kalau mau dipakai lagi harus diulang dari awal karena masih menggunakan konsep dasar pemrograman.
+    * - Pusing banget dah :)))))
+*/ 
