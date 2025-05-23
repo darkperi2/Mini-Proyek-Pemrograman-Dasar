@@ -21,7 +21,7 @@
  * STRUKTUR DATA PENGELUARAN
  * Menyimpan informasi tentang setiap transaksi pengeluaran
  */
-typedef struct {        //typedef struct adalah kaya ngebuat tipe data baru, bikin kotak isinya apa aja nah terus tinggal manggil fungsi kotak tadi
+typedef struct {        //typedef struct adalah kaya ngebuat sendiri tipe data baru, bikin kotak isinya apa aja nah terus tinggal manggil fungsi kotak tadi
     char tanggal[20];    // Format: DD/MM/YYYY
     char hari[15];       // Nama hari (Senin-Minggu)
     char kategori[PANJANG_NAMA]; // Kategori pengeluaran
@@ -343,8 +343,8 @@ int main() {
                            data[i].keterangan);
                 }
                 break;
-            }
-            case 3: {
+            } 
+            case 3: { 
                 // Mengatur anggaran bulanan
                 printf("\nMasukkan anggaran bulanan: Rp");
                 scanf("%f", &anggaran);
