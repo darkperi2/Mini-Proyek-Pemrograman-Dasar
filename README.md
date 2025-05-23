@@ -15,7 +15,7 @@
 - Fitur utama:
  - Input data nilai
  - Perhitungan otomatis, total pengualaran
- - Adanya fitur hukuman, sebelumnya user harus copy path dan nama file diprogram. jika pengeluaran melebihi batas maka otomasis file tersebut terhapus
+ - Adanya fitur hukuman, sebelumnya user harus copy path dan nama file diprogram. jika pengeluaran melebihi batas maka otomatis file tersebut terhapus
  - Output hasil total akan disimpan diexcel
 - Konsep yang digunakan:
  - Input/output
@@ -34,4 +34,4 @@
 ## Catatan
 - Program masih berupa prototipe
 - Program tidak bisa input secara berkala saat keluar dari program kembali lagi ke awal tapi file tetap sama, jadi harus tetap dalam program selama input data
-- 
+  
