@@ -27,4 +27,11 @@
 - break
 - switch
 - case
+- NULL
 ## Link Video Demo
+
+
+## Catatan
+- Program masih berupa prototipe
+- Program tidak bisa input secara berkala saat keluar dari program kembali lagi ke awal tapi file tetap sama, jadi harus tetap dalam program selama input data
+- 
