@@ -29,7 +29,7 @@
 - case
 - NULL
 ## Link Video Demo
-
+https://youtu.be/NwQZ_lZ9YLs?si=iQJXNgti95z5IvoK
 
 ## Catatan
 - Program masih berupa prototipe
